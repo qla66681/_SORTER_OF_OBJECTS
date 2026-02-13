@@ -1252,7 +1252,7 @@
 )
 
 (_ADS_AdservcoLispLoadInfo
-  (strcat "\nLSP >> '" "SORTER_OF_OBJECTS" "_" "v3.0.8" "'" " was loaded. ")
+  (strcat "\nLSP >> '" "SORTER_OF_OBJECTS" "_" "v3.0.9" "'" " was loaded. ")
 )
 
 (princ)
