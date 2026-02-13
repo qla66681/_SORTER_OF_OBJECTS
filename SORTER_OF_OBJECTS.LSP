@@ -37,7 +37,7 @@
 ;/; 2024-06-10 - v3.0.6 : New Command: 'SorterOfObjectsAll' (by bartosz)
 ;/; 2025-01-08 - v3.0.7 : New Command: 'SorterOfObjectsBlockDefinitions' (by bartosz)
 ;/; 2025-08-20 - v3.0.8 : Routine '_ADS_ALERT_LispWorksInBasicMode' updated. (by bartosz)
-
+;/; 2026-02-13 - v3.0.9 : If '#AlertFlag' is nil and debug mode is active, a special version of '_ADS_Alert*' will be printed to the command line (by bartosz)
 
 (defun _SSOObjectsOrder (#IniLst #AlertFlag /
                          ; subroutines
@@ -672,14 +672,34 @@
   (cond
     ; Check if file associated with company
     ((not Com)
-     (_ADS_ALERT_FileNotAssociatedWithCompany)
+     (if #AnyAlertFlag
+       (_ADS_ALERT_FileNotAssociatedWithCompany)
+       (if (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1)
+         (princ
+           (strcat  ;
+                   "\n>> File is not associated with any company! <<"
+           )
+         )
+       )
+     )
     )
     ; Check if config *ini file exists
     ((and
        (not (setq IniFile (_ADS_INI_CheckGVar LispName)))
        (not (setq IniFile (_ADS_INI_CreateGVar Com LispName)))
      )
-     (_ADS_ALERT_RoutineNotSetupForCompany Com LispName)
+     (if #AnyAlertFlag
+       (_ADS_ALERT_RoutineNotSetupForCompany Com LispName)
+       (if (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1)
+         (princ
+           (strcat  ;
+                   "\n>> Routine is not setup yet for this company ("
+                   Com
+                   "). <<"
+           )
+         )
+       )
+     )
     )
     ; Check if allowed entries are used in INI file at 'ObjectsOrder' section
     ((and
@@ -708,21 +728,42 @@
          )
        )
      )
-     (alert
-       (strcat "\nIncorect entries detected at 'Objects Order' Section."
-               "\nAllowed entries listed below:"
-               "\n"
-               (cd:STR_ReParse
-                 AllowedEntries
-                 ", "
-               )
-               "\nPlease contact Romek or Bartosz if it is required."
+
+     (if #AnyAlertFlag
+       (alert
+         (strcat "\nIncorect entries detected at 'Objects Order' Section."
+                 "\nAllowed entries listed below:"
+                 "\n"
+                 (cd:STR_ReParse
+                   AllowedEntries
+                   ", "
+                 )
+                 "\nPlease contact Romek or Bartosz if it is required."
+         )
+       )
+       (if (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1)
+         (princ
+           (strcat  ;
+                   "\n>> Incorect entries detected at 'Objects Order' Section. <<" ;
+           )
+         )
        )
      )
     )
     ; Check if lisp works in basic mode
     ((setq BasicFlag (_ADS_INI_GetKeyValue IniFile "Props" "BasicModeFlag"))
-     (_ADS_ALERT_LispWorksInBasicMode Com nil LispName)
+     (if #AnyAlertFlag
+       (_ADS_ALERT_LispWorksInBasicMode Com nil LispName)
+       (if (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1)
+         (princ
+           (strcat  ;
+                   "\n>> Routine for this company ("
+                   Com
+                   ") works only in basic mode! <<"
+           )
+         )
+       )
+     )
      (_MultiSSOSub #BlockNames IniFile BasicFlag #AnyAlertFlag)
      (setq RegenFlag T)
     )
