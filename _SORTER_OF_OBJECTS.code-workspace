@@ -1,0 +1,89 @@
+{
+	"folders": [
+		{
+			"name": "__LIB_Ads",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/Ads/"
+		},
+		{
+			"name": "__LIB_Alan",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/Alan/"
+		},
+		{
+			"name": "__LIB_CADPL-Pack",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/CADPL-Pack/"
+		},
+		{
+			"name": "__LIB_Gile",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/Gile/"
+		},
+		{
+			"name": "__LIB_Jtb",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/Jtb/"
+		},
+		{
+	    	"name": "__LIB_LeeMac",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/LeeMac/"
+		},
+		{
+			"name": "__LIB_Matrix",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/Matrix/"
+		},
+		{
+			"name": "__LIB_MP",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/MP/"
+		},
+		{
+			"name": "__LIB_Others",
+			"path": "d:/- dev_folder/CAD_UTIL/Routine/SupportLibrary/Others/"
+		},
+		{
+			"name": "_SORTER_OF_OBJECTS",
+			"path": ".",
+		},
+	],
+
+	"settings": {
+		"files.exclude": {
+			//"*/*.*": true,
+			"**/Not Used": true, // SUB in _LIBs
+			//
+			"**/- FINISHED": true,
+			"**/- NOT USED": true,
+			"**/- OTHERS": true,
+			"**/- VERSION": true,
+			//"*.bat": true,
+			"*.ls": true,
+			"ADS_Library.lsp": true,
+			"ADS_Lib_Alan.lsp": true,
+			"ADS_Lib_Gile.lsp": true,
+			"ADS_Lib_Jtb.lsp": true,
+			"ADS_Lib_Lee.lsp": true,
+			"ADS_Lib_Matrix.lsp": true,
+			"ADS_Lib_MP.lsp": true,
+			"ADS_Lib_Others.lsp": true,
+			//"*.png": true,
+		},
+		"search.exclude": {
+			//"*/*.bat": true,
+			"**/Not Used": true, // SUB in _LIBs
+			//
+			"**/- FINISHED": true,
+			"**/- NOT USED": true,
+			"**/- OTHERS": true,
+			//"**/- VERSION": true,
+			"*.bat": true,
+			"*.ls": true,
+			"ADS_Library.lsp": true,
+			"ADS_Lib_Alan.lsp": true,
+			"ADS_Lib_Gile.lsp": true,
+			"ADS_Lib_Jtb.lsp": true,
+			"ADS_Lib_Lee.lsp": true,
+			"ADS_Lib_Matrix.lsp": true,
+			"ADS_Lib_MP.lsp": true,
+			"ADS_Lib_Others.lsp": true,
+			//"*.png": true,
+		},
+	}
+}
+
+
