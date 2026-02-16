@@ -38,7 +38,6 @@
 ;/; 2025-01-08 - v3.0.7 : New Command: 'SorterOfObjectsBlockDefinitions' (by bartosz)
 ;/; 2025-08-20 - v3.0.8 : Routine '_ADS_ALERT_LispWorksInBasicMode' updated. (by bartosz)
 ;/; 2026-02-13 - v3.0.9 : If '#AlertFlag' is nil and debug mode is active, a special version of '_ADS_Alert*' will be printed to the command line (by bartosz)
-;/; 2026-02-16 - v3.1.0 : Minor correction to debug mode alerts (by bartosz)
 
 (defun _SSOObjectsOrder (#IniLst #AlertFlag /
                          ; subroutines
@@ -360,7 +359,7 @@
           (setq RCloLst (cons obj RCloLst))
         )
       )
-      (if (and (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1) #AnyAlertFlag)
+      (if (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1)
         (progn
           (princ "\n###########################################################")
           (cond
