@@ -422,7 +422,7 @@
            )
           )
           ((and (= % "LAYERS") LayLst)
-           (if (and (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1) #AnyAlertFlag)
+           (if (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1)
              (princ (strcat "\n" %))
            )
            (foreach %L #LayOrder
@@ -435,7 +435,7 @@
                        (vla-get-ActiveDocument (vlax-get-acad-object))
                        EntsLst
                      )
-                     (if (and (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1) #AnyAlertFlag)
+                     (if (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1)
                        (princ
                          (strcat "\n"
                                  (itoa (length EntsLst))
@@ -451,7 +451,7 @@
                        (vla-get-ActiveDocument (vlax-get-acad-object))
                        EntsLst
                      )
-                     (if (and (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1) #AnyAlertFlag)
+                     (if (equal (_ADS_VARIABLES_GetGVar "`SUPPORT" "DEBUG_MODE") 1)
                        (princ
                          (strcat "\n"
                                  (itoa (length EntsLst))
