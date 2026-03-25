@@ -39,162 +39,14 @@
 ;/; 2025-08-20 - v3.0.8 : Routine '_ADS_ALERT_LispWorksInBasicMode' updated. (by bartosz)
 ;/; 2026-02-13 - v3.0.9 : If '#AlertFlag' is nil and debug mode is active, a special version of '_ADS_Alert*' will be printed to the command line (by bartosz)
 ;/; 2026-02-16 - v3.1.0 : Minor correction to debug mode alerts (by bartosz)
+;/; 2026-03-25 - v3.1.1 : Undo markers and error handling have been removed from the '_MainSorterOfObjectsRoutine' routine, as it is used in other functions that have their own error handlers and undo markers (by bartosz)
 
-(defun _SSOObjectsOrder (#IniLst #AlertFlag /
-                         ; subroutines
-                         _SSOLayerOrder _SSODescriptiveBlocksFilter
-                         ; half-global variables
-                         ; other variables
-                         ObjOrd ObOrdLst DesBlk
-                        )
-  (defun _SSOLayerOrder (#IniLst)
-    (_ADS_INI_List2FlatKeyList
-      #IniLst
-      "LayersOrder"
-      "Layer*"
-    )
-  )
-  (defun _SSODescriptiveBlocksFilter (#IniLst)
-    (_ADS_INI_List2FlatKeyList
-      #IniLst
-      "DescriptiveBlocks"
-      "Block*"
-    )
-  )
-  (setq ObjOrd (list "REVISION CLOUDS"))
-  (if (_ADS_INI_GetKeyValue #IniLst "Props" "BasicModeFlag")
-    (setq #IniLst nil)
-  )
-  (if
-    (setq ObOrdLst (mapcar 'strcase
-                           (_ADS_INI_List2FlatKeyList
-                             #IniLst
-                             "ObjectsOrder"
-                             "Object*"
-                           )
-                   )
-    )
-    (setq ObjOrd ;(append
-                 (if #AlertFlag  ; order for alert is difrent than order required to shift object
-                   (append  ; those object will be bring to front
-                           ObjOrd
-                           (if
-                             (setq DesBlk (mapcar 'strcase
-                                                  (_SSODescriptiveBlocksFilter
-                                                    #IniLst
-                                                  )
-                                          )
-                             )
-                             (list "DESCRIPTIVE BLOCKS")
-                           )
-                           ObOrdLst
-                           ; object below will be sent back
-                           (if
-                             (setq LayOrd (mapcar 'strcase
-                                                  (_SSOLayerOrder #IniLst)
-                                          )
-                             )
-                             (list "LAYERS")
-                           )
-                           (list "HATCHES" "MASKS")
-                   )
-                   (append  ; those object will be bring to front
-                           ; object below will be sent back
-                           (if
-                             (setq LayOrd (mapcar 'strcase
-                                                  (_SSOLayerOrder #IniLst)
-                                          )
-                             )
-                             (list "LAYERS")
-                           )
-                           (list "HATCHES" "MASKS")
-                           (reverse ObOrdLst)
-                           (if
-                             (setq DesBlk (mapcar 'strcase
-                                                  (_SSODescriptiveBlocksFilter
-                                                    #IniLst
-                                                  )
-                                          )
-                             )
-                             (list "DESCRIPTIVE BLOCKS")
-                           )
-                           ObjOrd
-                   )
-                 ) ;)
-    )
-    (setq ObjOrd ;(append
-                 (if #AlertFlag
-                   (append  ; those object will be bring to front
-                           ObjOrd
-                           (if
-                             (setq DesBlk (mapcar 'strcase
-                                                  (_SSODescriptiveBlocksFilter
-                                                    #IniLst
-                                                  )
-                                          )
-                             )
-                             (list "DESCRIPTIVE BLOCKS")
-                           )
-                           (list "MTEXTS" "LEADERS" "MULTILEADERS" "DIMENSIONS")
-                           ; object below will be sent back
-                           (if
-                             (setq LayOrd (mapcar 'strcase
-                                                  (_SSOLayerOrder #IniLst)
-                                          )
-                             )
-                             (list "LAYERS")
-                           )
-                           (list "HATCHES"
-                                 "MASKS"
-                           )
-                   )
-                   (append  ; those object will be bring to front
-                           ; object below will be sent back
-                           (if
-                             (setq LayOrd (mapcar 'strcase
-                                                  (_SSOLayerOrder #IniLst)
-                                          )
-                             )
-                             (list "LAYERS")
-                           )
-                           (list "HATCHES"
-                                 "MASKS"
-                           )
-                           (reverse
-                             (list "MTEXTS"
-                                   "LEADERS"
-                                   "MULTILEADERS"
-                                   "DIMENSIONS"
-                             )
-                           )
-                           (if
-                             (setq DesBlk (mapcar 'strcase
-                                                  (_SSODescriptiveBlocksFilter
-                                                    #IniLst
-                                                  )
-                                          )
-                             )
-                             (list "DESCRIPTIVE BLOCKS")
-                           )
-                           ObjOrd
-                   )
-                 ) ;)
-    )
-  )
-  (if #AlertFlag
-    (list (if LayOrd (append (list "'LAYERS ORDER' SECTION") LayOrd (list "")))
-          (if DesBlk
-            (append (list "'DESCRIPTIVE BLOCKS' SECTION") DesBlk (list ""))
-          )
-          (if ObjOrd (append (list "'OBJECTS ORDER' SECTION") ObjOrd (list "")))
-    )
-    (list LayOrd
-          DesBlk
-          ObjOrd
-    )
-  )
-)
-(defun _MainSorterOfObjectsRoutine (#BlockNames #AnyAlertFlag / *error*
+(setq *_SOO_LispName* "SORTER_OF_OBJECTS")
+(setq *_SOO_VersionNumber* "v3.1.1")
+(setq *_SOO_CreateLog* nil)
+
+; =========================================================================================== ;
+(defun _MainSorterOfObjectsRoutine (#BlockNames #AnyAlertFlag /
                                     ; subroutines
                                     _MultiSSOSub
                                     ; half-global variables
@@ -202,13 +54,6 @@
                                     ; other variables
                                     Com LispName IniFile BasicFlag RegenFlag CheckEntries AllowedEntries
                                    )
-
-  (defun *error* (Msg)
-    (cd:SYS_UndoEnd)
-    (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
-    (princ (strcat "\nError: " Msg))
-  )
-
   (defun _MultiSSOSub (#BlockNames #IniLst #Flag #AnyAlertFlag /
                        ; subroutines
                        _SingleSSOSub
@@ -668,8 +513,7 @@
   (setq LispName "SORTER_OF_OBJECTS")
   (setq *GlobVarLst (list "draworderctl"))
   (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
-  (cd:SYS_UndoBegin)
-  (setvar "draworderctl" 3)
+  (setvar "draworderctl" 3) ; all those variables should be added to stand alone command which are using redefine or steal actions
   (cond
     ; Check if file associated with company
     ((not Com)
@@ -773,22 +617,8 @@
      (setq RegenFlag T)
     )
   )
-  (cd:SYS_UndoEnd)
   (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
   RegenFlag
-)
-
-(defun _SSOGetLayoutsBlocks (/ ; subroutines
-                            ; half-global variables
-                            ; other variables
-                            LayBlkNames)
-  (vlax-for blkContainerName (vla-get-layouts (vla-get-activedocument (vlax-get-Acad-Object)))
-    (setq LayBlkNames (cons (strcase (vla-get-name (vla-get-block blkContainerName)))
-                            LayBlkNames
-                      )
-    )
-  )
-  LayBlkNames
 )
 (defun _SSOCurrentSpace (/ ; subroutines
                         ; half-global variables
@@ -809,49 +639,296 @@
     )
   )
 )
-(defun c:SorterOfObjects (/ ; subroutines
+(defun _SSOGetLayoutsBlocks (/ ; subroutines
+                            ; half-global variables
+                            ; other variables
+                            LayBlkNames)
+  (vlax-for blkContainerName (vla-get-layouts (vla-get-activedocument (vlax-get-Acad-Object)))
+    (setq LayBlkNames (cons (strcase (vla-get-name (vla-get-block blkContainerName)))
+                            LayBlkNames
+                      )
+    )
+  )
+  LayBlkNames
+)
+(defun _SSOObjectsOrder (#IniLst #AlertFlag /
+                         ; subroutines
+                         _SSOLayerOrder _SSODescriptiveBlocksFilter
                          ; half-global variables
                          ; other variables
+                         ObjOrd ObOrdLst DesBlk
+                        )
+  (defun _SSOLayerOrder (#IniLst)
+    (_ADS_INI_List2FlatKeyList
+      #IniLst
+      "LayersOrder"
+      "Layer*"
+    )
+  )
+  (defun _SSODescriptiveBlocksFilter (#IniLst)
+    (_ADS_INI_List2FlatKeyList
+      #IniLst
+      "DescriptiveBlocks"
+      "Block*"
+    )
+  )
+  (setq ObjOrd (list "REVISION CLOUDS"))
+  (if (_ADS_INI_GetKeyValue #IniLst "Props" "BasicModeFlag")
+    (setq #IniLst nil)
+  )
+  (if
+    (setq ObOrdLst (mapcar 'strcase
+                           (_ADS_INI_List2FlatKeyList
+                             #IniLst
+                             "ObjectsOrder"
+                             "Object*"
+                           )
+                   )
+    )
+    (setq ObjOrd ;(append
+                 (if #AlertFlag  ; order for alert is difrent than order required to shift object
+                   (append  ; those object will be bring to front
+                           ObjOrd
+                           (if
+                             (setq DesBlk (mapcar 'strcase
+                                                  (_SSODescriptiveBlocksFilter
+                                                    #IniLst
+                                                  )
+                                          )
+                             )
+                             (list "DESCRIPTIVE BLOCKS")
+                           )
+                           ObOrdLst
+                           ; object below will be sent back
+                           (if
+                             (setq LayOrd (mapcar 'strcase
+                                                  (_SSOLayerOrder #IniLst)
+                                          )
+                             )
+                             (list "LAYERS")
+                           )
+                           (list "HATCHES" "MASKS")
+                   )
+                   (append  ; those object will be bring to front
+                           ; object below will be sent back
+                           (if
+                             (setq LayOrd (mapcar 'strcase
+                                                  (_SSOLayerOrder #IniLst)
+                                          )
+                             )
+                             (list "LAYERS")
+                           )
+                           (list "HATCHES" "MASKS")
+                           (reverse ObOrdLst)
+                           (if
+                             (setq DesBlk (mapcar 'strcase
+                                                  (_SSODescriptiveBlocksFilter
+                                                    #IniLst
+                                                  )
+                                          )
+                             )
+                             (list "DESCRIPTIVE BLOCKS")
+                           )
+                           ObjOrd
+                   )
+                 ) ;)
+    )
+    (setq ObjOrd ;(append
+                 (if #AlertFlag
+                   (append  ; those object will be bring to front
+                           ObjOrd
+                           (if
+                             (setq DesBlk (mapcar 'strcase
+                                                  (_SSODescriptiveBlocksFilter
+                                                    #IniLst
+                                                  )
+                                          )
+                             )
+                             (list "DESCRIPTIVE BLOCKS")
+                           )
+                           (list "MTEXTS" "LEADERS" "MULTILEADERS" "DIMENSIONS")
+                           ; object below will be sent back
+                           (if
+                             (setq LayOrd (mapcar 'strcase
+                                                  (_SSOLayerOrder #IniLst)
+                                          )
+                             )
+                             (list "LAYERS")
+                           )
+                           (list "HATCHES"
+                                 "MASKS"
+                           )
+                   )
+                   (append  ; those object will be bring to front
+                           ; object below will be sent back
+                           (if
+                             (setq LayOrd (mapcar 'strcase
+                                                  (_SSOLayerOrder #IniLst)
+                                          )
+                             )
+                             (list "LAYERS")
+                           )
+                           (list "HATCHES"
+                                 "MASKS"
+                           )
+                           (reverse
+                             (list "MTEXTS"
+                                   "LEADERS"
+                                   "MULTILEADERS"
+                                   "DIMENSIONS"
+                             )
+                           )
+                           (if
+                             (setq DesBlk (mapcar 'strcase
+                                                  (_SSODescriptiveBlocksFilter
+                                                    #IniLst
+                                                  )
+                                          )
+                             )
+                             (list "DESCRIPTIVE BLOCKS")
+                           )
+                           ObjOrd
+                   )
+                 ) ;)
+    )
+  )
+  (if #AlertFlag
+    (list (if LayOrd (append (list "'LAYERS ORDER' SECTION") LayOrd (list "")))
+          (if DesBlk
+            (append (list "'DESCRIPTIVE BLOCKS' SECTION") DesBlk (list ""))
+          )
+          (if ObjOrd (append (list "'OBJECTS ORDER' SECTION") ObjOrd (list "")))
+    )
+    (list LayOrd
+          DesBlk
+          ObjOrd
+    )
+  )
+)
+(defun c:SorterOfObjects (/ *error* ;
+                         ; subroutines
+                         ; half-global variables
+                          *GlobVarLst
+                         ; other variables
                          Blks)
+  (defun *error* (Msg)
+    (cd:SYS_UndoEnd)
+    (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    (princ (strcat "\nError: " Msg))
+  )
   (if (= (getvar "REFEDITNAME") "")
     (progn
+      (setq *GlobVarLst (list "draworderctl"))
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+      (cd:SYS_UndoBegin)
+      (setvar "draworderctl" 3)
+
       (setq Blks (_SSOGetLayoutsBlocks))
       (if (_MainSorterOfObjectsRoutine Blks T)
         (vla-regen (vla-get-activedocument (vlax-get-acad-object)) acAllViewports)
       )
+
+      (cd:SYS_UndoEnd)
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
     )
     (princ "\nCommand is not avaible when 'REFEDIT' is active. ")
   )
   (princ)
 )
-(defun c:SorterOfObjectsNested (/ ; subroutines
-                               ; half-global variables
-                               ; other variables
-                               MBlk MBlks PBlk PBlks Blks)
-  (if (= (getvar "REFEDITNAME") "")
-    (progn
-      (setq MBlk "*MODEL_SPACE")
-      (setq MBlks (_ADS_BLOCK_ListNested MBlk 3))
-      (setq PBlk "*PAPER_SPACE_ALL_LAYOUTS")
-      (setq PBlks (_ADS_BLOCK_ListNested PBlk 3))
-      (setq Blks (append MBlks PBlks (_SSOGetLayoutsBlocks)))
-      (if (_MainSorterOfObjectsRoutine Blks T)
-        (vla-regen (vla-get-activedocument (vlax-get-acad-object)) acAllViewports)
+(defun c:SorterOfObjectsAll (/ AllCommands Pop)
+  (setq AllCommands (list (cons "SorterOfObjects" " - (SOO)")  ;
+                          (cons "SorterOfObjectsNested" " - (SOON)") ;
+                          (cons "SorterOfObjectsModel" " - (SOOM)") ;
+                          (cons "SorterOfObjectsCurrentSpace" " - (SOOC)") ;
+                          (cons "SorterOfObjectsCurrentSpaceNested"
+                                " - (SOOCN)"
+                          ) ;
+                          (cons "SorterOfObjectsSelectedBlocks"
+                                " - (SOOS)"
+                          ) ;
+                          (cons "SorterOfObjectsSelectedBlocksNested"
+                                " - (SOOSN)"
+                          ) ;
+                          (cons "SorterOfObjectsLay0Tagger" " - (SOO0)") ;
+                          (cons "SorterOfObjectsReminder" " - (SOOR)") ;
+                          (cons "SorterOfObjectsBlockDefinitions" " - (SOOD)") ;
+                    )
+  )
+  (setq Pop (dos_popupmenu
+              (mapcar
+                '(lambda (%)
+                   (strcat (strcase (car %)) (strcase (cdr %)))
+                 )
+                AllCommands
+              )
+            )
+  )
+  (if Pop
+    (eval
+      (read
+        (nth Pop
+             (mapcar
+               '(lambda (%)
+                  (strcat "(c:" (strcase (car %)) ")")
+                )
+               AllCommands
+             )
+        )
       )
     )
+    (princ "\nNothing selected. ")
+  )
+)
+(defun c:SorterOfObjectsBlockDefinitions (/ *error* ;
+                                         ; subroutines
+                                         ; half-global variables
+                                          *GlobVarLst
+                                         ; other variables
+                                         Blks)
+  (defun *error* (Msg)
+    (cd:SYS_UndoEnd)
+    (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    (princ (strcat "\nError: " Msg))
+  )
+  (if (= (getvar "REFEDITNAME") "")
+    (progn
+      (setq *GlobVarLst (list "draworderctl"))
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+      (cd:SYS_UndoBegin)
+      (setvar "draworderctl" 3)
+
+      (setq Blks (cd:SYS_CollList "BLOCK" (+ 2 4 8))) ; no xref no xref dependent no anonymus
+      (if (_MainSorterOfObjectsRoutine Blks T)
+        (vla-Regen (vla-get-ActiveDocument (vlax-get-acad-object))
+                   acActiveViewport
+        )
+      )
+
+      (cd:SYS_UndoEnd)
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    )
     (princ "\nCommand is not avaible when 'REFEDIT' is active. ")
   )
   (princ)
 )
-(defun c:SorterOfObjectsModel ()
-  (c:SorterOfObjectsCurrentSpace)
-)
-(defun c:SorterOfObjectsCurrentSpace (/ ; subroutines
+(defun c:SorterOfObjectsCurrentSpace (/ *error* ;
+                                     ; subroutines
                                      ; half-global variables
+                                      *GlobVarLst
                                      ; other variables
                                      Blk Blks)
+  (defun *error* (Msg)
+    (cd:SYS_UndoEnd)
+    (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    (princ (strcat "\nError: " Msg))
+  )
   (if (= (getvar "REFEDITNAME") "")
     (progn
+      (setq *GlobVarLst (list "draworderctl"))
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+      (cd:SYS_UndoBegin)
+      (setvar "draworderctl" 3)
+
       (setq Blk (_SSOCurrentSpace))
       (setq Blks (cons Blk Blks))
       (if (_MainSorterOfObjectsRoutine Blks T)
@@ -859,17 +936,33 @@
                    acActiveViewport
         )
       )
+
+      (cd:SYS_UndoEnd)
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
     )
     (princ "\nCommand is not avaible when 'REFEDIT' is active. ")
   )
   (princ)
 )
-(defun c:SorterOfObjectsCurrentSpaceNested (/ ; subroutines
-                                           ; half-global variables
-                                           ; other variables
-                                           Blk Blks)
+(defun c:SorterOfObjectsCurrentSpaceNested (/ *error* ;
+                                            ; subroutines
+                                            ; half-global variables
+                                            *GlobVarLst
+                                            ; other variables
+                                            Blk Blks
+                                           )
+  (defun *error* (Msg)
+    (cd:SYS_UndoEnd)
+    (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    (princ (strcat "\nError: " Msg))
+  )
   (if (= (getvar "REFEDITNAME") "")
     (progn
+      (setq *GlobVarLst (list "draworderctl"))
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+      (cd:SYS_UndoBegin)
+      (setvar "draworderctl" 3)
+
       (setq Blk (_SSOCurrentSpace))
       (setq Blks (_ADS_BLOCK_ListNested Blk 3))
       (setq Blks (cons Blk Blks))
@@ -878,127 +971,25 @@
                    acActiveViewport
         )
       )
+
+      (cd:SYS_UndoEnd)
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
     )
     (princ "\nCommand is not avaible when 'REFEDIT' is active. ")
   )
   (princ)
 )
-(defun c:SorterOfObjectsSelectedBlocks (/ ; subroutines
-                                       ; half-global variables
-                                       ; other variables
-                                       Blks Sel)
-  (princ "\nSelect blocks: ")
-  (if
-    (and
-      (setq Sel (ssget (list (cons -4 "<or") (cons 0 "INSERT") (cons -4 "or>"))))
-      (setq Blks (vl-remove-if
-                   '(lambda (x)
-                      (= 4
-                         (logand 4
-                                 (cdr
-                                   (assoc 70
-                                          (entget
-                                            (tblobjname "block"
-                                                        x
-                                            )
-                                          )
-                                   )
-                                 )
-                         )
-                      )
-                    )
-                   (LM:Unique
-                     (mapcar
-                       '(lambda (obj)
-                          (vla-get-EffectiveName
-                            obj
-                          )
-                        )
-                       (cd:SSX_Convert Sel 1)
-                     )
-                   )
-                 )
-      )
-    )
-    (progn
-      (if (_MainSorterOfObjectsRoutine Blks T)
-        (vla-Regen (vla-get-ActiveDocument (vlax-get-acad-object))
-                   acActiveViewport
-        )
-      )
-    )
-    (princ "\nWrong object selected/nothing selected. ")
-  )
-  (princ)
-)
-(defun c:SorterOfObjectsSelectedBlocksNested (/ ; subroutines
-                                             ; half-global variables
-                                             ; other variables
-                                             Blks Sel)
-  (princ "\nSelect blocks (nested blocks will be sorted too): ")
-  (if
-    (and
-      (setq Sel (ssget (list (cons -4 "<or") (cons 0 "INSERT") (cons -4 "or>"))))
-      (setq Blks (vl-remove-if
-                   '(lambda (x)
-                      (= 4
-                         (logand 4
-                                 (cdr
-                                   (assoc 70
-                                          (entget
-                                            (tblobjname "block"
-                                                        x
-                                            )
-                                          )
-                                   )
-                                 )
-                         )
-                      )
-                    )
-                   (LM:Unique
-                     (mapcar
-                       '(lambda (obj)
-                          (vla-get-EffectiveName
-                            obj
-                          )
-                        )
-                       (cd:SSX_Convert Sel 1)
-                     )
-                   )
-                 )
-      )
-    )
-    (progn
-      (setq Blks (LM:Unique
-                   (mapcar 'strcase
-                           (apply 'append
-                                  (mapcar
-                                    '(lambda (obj)
-                                       (cons obj (_ADS_BLOCK_ListNested obj 3))
-                                     )
-                                    Blks
-                                  )
-                           )
-                   )
-                 )
-      )
-      (if (_MainSorterOfObjectsRoutine Blks T)
-        (vla-Regen (vla-get-ActiveDocument (vlax-get-acad-object))
-                   acActiveViewport
-        )
-      )
-    )
-    (princ "\nWrong object selected/nothing selected. ")
-  )
-  (princ)
-)
-(defun c:SorterOfObjectsLay0Tagger (/
+(defun c:SorterOfObjectsLay0Tagger (/ *error*
                                     ; subroutines
                                     _SubTagger
                                     ; half-global variables
                                     ; other variables
                                     BlocksColl Pick InsEnt Blk BlockEditorFlag
                                    )
+  (defun *error* (Msg)
+    (cd:SYS_UndoEnd)
+    (princ (strcat "\nError: " Msg))
+  )
   (defun _SubTagger (#BlkName #SaveFlag / BlocksColl)
     (setq BlocksColl (vla-get-blocks (vla-get-activedocument (vlax-get-Acad-Object))))
     (if
@@ -1063,6 +1054,7 @@
       )
     )
   )
+  (cd:SYS_UndoBegin)
   (if (= 1 (getvar 'blockeditor))  ; blockeditor
     (setq BlockEditorFlag T)
   )
@@ -1109,14 +1101,56 @@
      (princ "\nWrong object selected / Nothing selected. ")
     )
   )
+  (cd:SYS_UndoEnd)
   (princ)
 )
-(defun c:SorterOfObjectsReminder (/
+(defun c:SorterOfObjectsModel ()
+  (c:SorterOfObjectsCurrentSpace)
+)
+(defun c:SorterOfObjectsNested (/ *error* ;
+                                ; subroutines
+                                ; half-global variables
+                                *GlobVarLst
+                                ; other variables
+                                MBlk MBlks PBlk PBlks Blks
+                               )
+  (defun *error* (Msg)
+    (cd:SYS_UndoEnd)
+    (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    (princ (strcat "\nError: " Msg))
+  )
+  (if (= (getvar "REFEDITNAME") "")
+    (progn
+      (setq *GlobVarLst (list "draworderctl"))
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+      (cd:SYS_UndoBegin)
+      (setvar "draworderctl" 3)
+
+      (setq MBlk "*MODEL_SPACE")
+      (setq MBlks (_ADS_BLOCK_ListNested MBlk 3))
+      (setq PBlk "*PAPER_SPACE_ALL_LAYOUTS")
+      (setq PBlks (_ADS_BLOCK_ListNested PBlk 3))
+      (setq Blks (append MBlks PBlks (_SSOGetLayoutsBlocks)))
+      (if (_MainSorterOfObjectsRoutine Blks T)
+        (vla-regen (vla-get-activedocument (vlax-get-acad-object)) acAllViewports)
+      )
+
+      (cd:SYS_UndoEnd)
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    )
+    (princ "\nCommand is not avaible when 'REFEDIT' is active. ")
+  )
+  (princ)
+)
+(defun c:SorterOfObjectsReminder (/ *error*
                                   ; subroutines
                                   ; half-global variables
                                   ; other variables
                                   Com Pop LispName IniFile CheckEntries AllowedEntries
                                  )
+  (defun *error* (Msg)
+    (princ (strcat "\nError: " Msg))
+  )
   (setq Com (_ADS_DICTIONARY_CheckCompany))
   (setq LispName "SORTER_OF_OBJECTS")
   (cond
@@ -1189,71 +1223,147 @@
   (princ "\nCommand terminated.")
   (princ)
 )
-(defun c:SorterOfObjectsAll (/ AllCommands Pop)
-  (setq AllCommands (list (cons "SorterOfObjects" " - (SOO)")  ;
-                          (cons "SorterOfObjectsNested" " - (SOON)") ;
-                          (cons "SorterOfObjectsModel" " - (SOOM)") ;
-                          (cons "SorterOfObjectsCurrentSpace" " - (SOOC)") ;
-                          (cons "SorterOfObjectsCurrentSpaceNested"
-                                " - (SOOCN)"
-                          ) ;
-                          (cons "SorterOfObjectsSelectedBlocks"
-                                " - (SOOS)"
-                          ) ;
-                          (cons "SorterOfObjectsSelectedBlocksNested"
-                                " - (SOOSN)"
-                          ) ;
-                          (cons "SorterOfObjectsLay0Tagger" " - (SOO0)") ;
-                          (cons "SorterOfObjectsReminder" " - (SOOR)") ;
-                          (cons "SorterOfObjectsBlockDefinitions" " - (SOOD)") ;
+(defun c:SorterOfObjectsSelectedBlocks (/ *error* ;
+                                       ; subroutines
+                                       ; half-global variables
+                                        *GlobVarLst
+                                       ; other variables
+                                       Blks Sel)
+  (defun *error* (Msg)
+    (cd:SYS_UndoEnd)
+    (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    (princ (strcat "\nError: " Msg))
+  )
+  (princ "\nSelect blocks: ")
+  (if
+    (and
+      (setq Sel (ssget (list (cons -4 "<or") (cons 0 "INSERT") (cons -4 "or>"))))
+      (setq Blks (vl-remove-if
+                   '(lambda (x)
+                      (= 4
+                         (logand 4
+                                 (cdr
+                                   (assoc 70
+                                          (entget
+                                            (tblobjname "block"
+                                                        x
+                                            )
+                                          )
+                                   )
+                                 )
+                         )
+                      )
                     )
-  )
-  (setq Pop (dos_popupmenu
-              (mapcar
-                '(lambda (%)
-                   (strcat (strcase (car %)) (strcase (cdr %)))
+                   (LM:Unique
+                     (mapcar
+                       '(lambda (obj)
+                          (vla-get-EffectiveName
+                            obj
+                          )
+                        )
+                       (cd:SSX_Convert Sel 1)
+                     )
+                   )
                  )
-                AllCommands
-              )
-            )
-  )
-  (if Pop
-    (eval
-      (read
-        (nth Pop
-             (mapcar
-               '(lambda (%)
-                  (strcat "(c:" (strcase (car %)) ")")
-                )
-               AllCommands
-             )
-        )
       )
     )
-    (princ "\nNothing selected. ")
-  )
-)
-
-(defun c:SorterOfObjectsBlockDefinitions (/ ; subroutines
-                                         ; half-global variables
-                                         ; other variables
-                                         Blks)
-  (if (= (getvar "REFEDITNAME") "")
     (progn
-      (setq Blks (cd:SYS_CollList "BLOCK" (+ 2 4 8))) ; no xref no xref dependent no anonymus
+      (setq *GlobVarLst (list "draworderctl"))
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+      (cd:SYS_UndoBegin)
+      (setvar "draworderctl" 3)
+
       (if (_MainSorterOfObjectsRoutine Blks T)
         (vla-Regen (vla-get-ActiveDocument (vlax-get-acad-object))
                    acActiveViewport
         )
       )
+
+      (cd:SYS_UndoEnd)
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
     )
-    (princ "\nCommand is not avaible when 'REFEDIT' is active. ")
+    (princ "\nWrong object selected/nothing selected. ")
   )
   (princ)
 )
+(defun c:SorterOfObjectsSelectedBlocksNested (/ *error*
+                                              ; subroutines
+                                              ; half-global variables
+                                              *GlobVarLst
+                                              ; other variables
+                                              Blks Sel
+                                             )
+  (defun *error* (Msg)
+    (cd:SYS_UndoEnd)
+    (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    (princ (strcat "\nError: " Msg))
+  )
+  (princ "\nSelect blocks (nested blocks will be sorted too): ")
+  (if
+    (and
+      (setq Sel (ssget (list (cons -4 "<or") (cons 0 "INSERT") (cons -4 "or>"))))
+      (setq Blks (vl-remove-if
+                   '(lambda (x)
+                      (= 4
+                         (logand 4
+                                 (cdr
+                                   (assoc 70
+                                          (entget
+                                            (tblobjname "block"
+                                                        x
+                                            )
+                                          )
+                                   )
+                                 )
+                         )
+                      )
+                    )
+                   (LM:Unique
+                     (mapcar
+                       '(lambda (obj)
+                          (vla-get-EffectiveName
+                            obj
+                          )
+                        )
+                       (cd:SSX_Convert Sel 1)
+                     )
+                   )
+                 )
+      )
+    )
+    (progn
+      (setq *GlobVarLst (list "draworderctl"))
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+      (cd:SYS_UndoBegin)
+      (setvar "draworderctl" 3)
 
-(_ADS_AdservcoLispLoadInfo
-  (strcat "\nLSP >> '" "SORTER_OF_OBJECTS" "_" "v3.0.9" "'" " was loaded. ")
+      (setq Blks (LM:Unique
+                   (mapcar 'strcase
+                           (apply 'append
+                                  (mapcar
+                                    '(lambda (obj)
+                                       (cons obj (_ADS_BLOCK_ListNested obj 3))
+                                     )
+                                    Blks
+                                  )
+                           )
+                   )
+                 )
+      )
+      (if (_MainSorterOfObjectsRoutine Blks T)
+        (vla-Regen (vla-get-ActiveDocument (vlax-get-acad-object))
+                   acActiveViewport
+        )
+      )
+
+      (cd:SYS_UndoEnd)
+      (_ADS_VARIABLES_StoreOrRestore "*GlobVarLst")
+    )
+    (princ "\nWrong object selected/nothing selected. ")
+  )
+  (princ)
 )
-
+(_ADS_AdservcoLispLoadInfo
+  (strcat "\nLSP >> '" *_SOO_LispName* "_" *_SOO_VersionNumber* "'" " was loaded. ")
+)
 (princ)
